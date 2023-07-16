@@ -42,7 +42,7 @@ output "inventory" {
 #}
 
 resource "local_file" "ansible_inventory" {
-  filename = "../AZ_Terraform_Ansible_K8S/ansible/inventory"
+  filename = "../../ansible/inventory"
   content = <<EOF
   [inventory]
   ${data.template_file.inventory.rendered}
@@ -51,4 +51,3 @@ EOF
 
 
  
-
