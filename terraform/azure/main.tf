@@ -95,7 +95,9 @@ resource "azurerm_public_ip" "master" {
  location                     = azurerm_resource_group.azure-terraform.location
  resource_group_name          = azurerm_resource_group.azure-terraform.name
  allocation_method            = "Dynamic"
+ depends_on = [azurerm_resource_group.azure-terraform]
 }
+
 
 
 resource "azurerm_public_ip" "worker" {
@@ -104,9 +106,10 @@ resource "azurerm_public_ip" "worker" {
  location                     = azurerm_resource_group.azure-terraform.location
  resource_group_name          = azurerm_resource_group.azure-terraform.name
  allocation_method            = "Dynamic"
+  depends_on = [azurerm_resource_group.azure-terraform]
 }
 
-resource "azurerm_network_interface" "master" {
+resource "azurerm_network_interface" "master_nic" {
  count               = var.master_count
  name                = "acctni-master${count.index}"
  location            = azurerm_resource_group.azure-terraform.location
@@ -118,9 +121,11 @@ resource "azurerm_network_interface" "master" {
    private_ip_address_allocation = "Dynamic"
    public_ip_address_id          = azurerm_public_ip.master[count.index].id
  }
+   depends_on = [azurerm_resource_group.azure-terraform]
 }
 
-resource "azurerm_network_interface" "worker" {
+
+resource "azurerm_network_interface" "worker_nic" {
  count               = var.worker_count
  name                = "acctni-worker${count.index}"
  location            = azurerm_resource_group.azure-terraform.location
@@ -132,7 +137,29 @@ resource "azurerm_network_interface" "worker" {
    private_ip_address_allocation = "Dynamic"
    public_ip_address_id          = azurerm_public_ip.worker[count.index].id
  }
+  depends_on = [azurerm_resource_group.azure-terraform]
 }
+
+
+
+# Connect the security group to the master NIC
+resource "azurerm_network_interface_security_group_association" "master_nsg_nic" {
+  count                     = length(azurerm_network_interface.master_nic.*.id)
+  network_interface_id      = element(azurerm_network_interface.master_nic.*.id, count.index)
+  network_security_group_id = azurerm_network_security_group.allowports.id
+}
+
+
+
+# Connect the security group to the workers NICS
+
+resource "azurerm_network_interface_security_group_association" "wk_nsg_nic" {
+  count                     = length(azurerm_network_interface.worker_nic.*.id)
+  network_interface_id      = element(azurerm_network_interface.worker_nic.*.id, count.index)
+  network_security_group_id = azurerm_network_security_group.allowports.id
+}
+
+
 
 resource "azurerm_managed_disk" "worker" {
  count                = var.worker_count
@@ -165,7 +192,7 @@ resource "azurerm_linux_virtual_machine" "master" {
  name                  = "acctvm-master${count.index}"
  location              = azurerm_resource_group.azure-terraform.location
  resource_group_name   = azurerm_resource_group.azure-terraform.name
- network_interface_ids = azurerm_network_interface.master.*.id
+ network_interface_ids = azurerm_network_interface.master_nic.*.id
  size               = "Standard_D2_v3" 
 
  # Uncomment this line to delete the OS disk automatically when deleting the VM
@@ -196,6 +223,17 @@ resource "azurerm_linux_virtual_machine" "master" {
      public_key     =  tls_private_key.example_ssh.public_key_openssh
  }
 
+provisioner "remote-exec" {
+    inline = ["sudo apt update", "sudo apt install python3 -y", "echo Done!"]
+
+    connection {
+      host        = azurerm_linux_virtual_machine.mastermaster[count.index].public_ip_address
+      type        = "ssh"
+      user        = "azureuser"
+      private_key = tls_private_key.example_ssh.private_key_pem
+    }
+  }
+
  tags = {
    environment = "master"
  }
@@ -206,7 +244,7 @@ resource "azurerm_linux_virtual_machine" "worker" {
  name                  = "acctvm-worker${count.index}"
  location              = azurerm_resource_group.azure-terraform.location
  resource_group_name   = azurerm_resource_group.azure-terraform.name
- network_interface_ids = [element(azurerm_network_interface.worker.*.id, count.index)]
+ network_interface_ids = [element(azurerm_network_interface.worker_nic.*.id, count.index)]
  size               = "Standard_D2_v3"
 
  # Uncomment this line to delete the OS disk automatically when deleting the VM
@@ -237,6 +275,19 @@ resource "azurerm_linux_virtual_machine" "worker" {
      public_key     =  tls_private_key.example_ssh.public_key_openssh
  }
 
+provisioner "remote-exec" {
+    inline = ["sudo apt update", "sudo apt install python3 -y", "echo Done!"]
+
+    connection {
+      host        = azurerm_linux_virtual_machine.worker[count.index].public_ip_address
+      type        = "ssh"
+      user        = "azureuser"
+      private_key = tls_private_key.example_ssh.private_key_pem
+    }
+  }
+
+
+
  tags = {
    environment = "worker"
  }
@@ -244,4 +295,3 @@ resource "azurerm_linux_virtual_machine" "worker" {
 
 
 }
-
