@@ -187,65 +187,65 @@ resource "tls_private_key" "example_ssh" {
   rsa_bits = 4096
 }
 
+#resource "local_file" "ssh.private_key" {
+  #filename = "./id_rsa"
+ #file_permission = "0600"
+  #content  = <<-EOT
+    #${tls_private_key.example_ssh.private_key_pem}
+  #EOT
+#}
+
+
+#resource "local_file" "ssh.public_key" {
+  #filename = "./id_rsa.pub"
+  #file_permission = "0633"
+  #content  = <<-EOT
+    #${tls_private_key.example_ssh.public_key_openssh}
+  #EOT
+#}
+
 resource "azurerm_linux_virtual_machine" "master" {
  count                 = var.master_count
  name                  = "acctvm-master${count.index}"
  location              = azurerm_resource_group.azure-terraform.location
  resource_group_name   = azurerm_resource_group.azure-terraform.name
  network_interface_ids = azurerm_network_interface.master_nic.*.id
- size               = "Standard_D2_v3" 
+ size               = "Standard_D2ds_v4"
+ disable_password_authentication = false
 
- # Uncomment this line to delete the OS disk automatically when deleting the VM
- # delete_os_disk_on_termination = true
-
- # Uncomment this line to delete the data disks automatically when deleting the VM
- # delete_data_disks_on_termination = true
-
- source_image_reference {
-   publisher = "Canonical"
-   offer     = "UbuntuServer"
-   sku       = "18.04-LTS"
-   version   = "latest"
- }
-
- os_disk {
-    name              = "accdisk-master-${count.index}"
-    caching           = "ReadWrite"
-    storage_account_type = "Standard_LRS"
- }
-
- disable_password_authentication = true
- admin_username = "azureuser"
- admin_password = "P@ss123456"
-
- admin_ssh_key {
-     username       = "azureuser"
-     public_key     =  tls_private_key.example_ssh.public_key_openssh
- }
 
 provisioner "remote-exec" {
-    inline = ["sudo apt update", "sudo apt install python3 -y", "echo Done!"]
+    inline = ["sudo dnf update", "sudo dnf install python3", "sudo dnf install python3-pip", "pip3 install ansible --user", "subscription-manager repos --enable ansible-2.8-for-rhel-8-x86_64-rpms", "dnf -y install ansible"]
+    
 
     connection {
-      host        = azurerm_linux_virtual_machine.mastermaster[count.index].public_ip_address
+      host        = azurerm_linux_virtual_machine.master[count.index].public_ip_address
       type        = "ssh"
       user        = "azureuser"
       private_key = tls_private_key.example_ssh.private_key_pem
-    }
-  }
-
- tags = {
+       }
+         }
+   
+  provisioner "local-exec" {
+   command = "ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -u azureuser -i '${azurerm_linux_virtual_machine.master[count.index].public_ip_address},' --private-key ${tls_private_key.example_ssh.private_key_pem} -e 'pub_key=${tls_private_key.example_ssh.public_key_openssh}' /../../ansible/kube-dependencies.yaml"
+                   }
+ 
+ #provisioner "local-exec" {
+    #command = "ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -u azureuser -i '${azurerm_linux_virtual_machine.my_terraform_vm.public_ip_address},' --private-key ${local_file.idrsa.filename} -e 'pub_key=${local_file.idrsapub.filename}' /../../ansible/kube-dependencies.yaml"
+    
+  #}            
+  tags = {
    environment = "master"
- }
-}
-
+          }
+           }
 resource "azurerm_linux_virtual_machine" "worker" {
  count                 = var.worker_count
  name                  = "acctvm-worker${count.index}"
  location              = azurerm_resource_group.azure-terraform.location
  resource_group_name   = azurerm_resource_group.azure-terraform.name
  network_interface_ids = [element(azurerm_network_interface.worker_nic.*.id, count.index)]
- size               = "Standard_D2_v3"
+ size               = "Standard_D2ds_v4"
+ disable_password_authentication = false
 
  # Uncomment this line to delete the OS disk automatically when deleting the VM
  # delete_os_disk_on_termination = true
@@ -253,38 +253,29 @@ resource "azurerm_linux_virtual_machine" "worker" {
  # Uncomment this line to delete the data disks automatically when deleting the VM
  # delete_data_disks_on_termination = true
 
- source_image_reference {
-   publisher = "Canonical"
-   offer     = "UbuntuServer"
-   sku       = "18.04-LTS"
-   version   = "latest"
- }
-
+  source_image_reference {
+    publisher = "OpenLogic"
+    offer     = "CentOS"
+    sku       = "8_5-gen2"
+    version   = "latest"
+  }
  os_disk {
     name              = "accdisk-worker-${count.index}"
     caching           = "ReadWrite"
     storage_account_type = "Standard_LRS"
+    
  }
 
- disable_password_authentication = true
+ 
  admin_username = "azureuser"
- admin_password = "P@ss123456"
+ admin_password = "P@ssw0rd123456"
+ 
 
  admin_ssh_key {
      username       = "azureuser"
      public_key     =  tls_private_key.example_ssh.public_key_openssh
  }
 
-provisioner "remote-exec" {
-    inline = ["sudo apt update", "sudo apt install python3 -y", "echo Done!"]
-
-    connection {
-      host        = azurerm_linux_virtual_machine.worker[count.index].public_ip_address
-      type        = "ssh"
-      user        = "azureuser"
-      private_key = tls_private_key.example_ssh.private_key_pem
-    }
-  }
 
 
 
@@ -294,4 +285,4 @@ provisioner "remote-exec" {
 
 
 
-}
+                   }
