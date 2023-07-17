@@ -1,6 +1,1 @@
-[k8s-masters]
-20.231.70.112 ansible_ssh_host=20.231.70.112 ansible_ssh_port=22 ansible_ssh_user=azureuser ansible_ssh_private_key_file=../terraform/azure/azure.pem ansible_ssh_extra_args='-o StrictHostKeyChecking=no'
 
-[k8s-workers]
-172.171.238.252 ansible_ssh_host=172.171.238.252 ansible_ssh_port=22 ansible_ssh_user=azureuser ansible_ssh_private_key_file=../terraform/azure/azure.pem ansible_ssh_extra_args='-o StrictHostKeyChecking=no'
-20.127.122.29 ansible_ssh_host=20.127.122.29 ansible_ssh_port=22 ansible_ssh_user=azureuser ansible_ssh_private_key_file=../terraform/azure/azure.pem ansible_ssh_extra_args='-o StrictHostKeyChecking=no'
