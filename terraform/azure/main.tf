@@ -15,7 +15,7 @@ features {
 }
 
 resource "azurerm_resource_group" "azure-terraform" {
- name     = "cmterranskubeadm"
+ name     = "cmterranskubeadm1"
  location = "East US "
 }
 
