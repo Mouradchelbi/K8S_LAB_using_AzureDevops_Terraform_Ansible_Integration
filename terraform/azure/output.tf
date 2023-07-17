@@ -49,5 +49,13 @@ resource "local_file" "ansible_inventory" {
 EOF
 }
 
+resource "local_file" "private_key" {
+  filename = "../azure/private_key"
+  content = <<EOF
+  [tls_private_key]
+  ${tls_private_key.example_ssh.private_key_pem }
+EOF
+}
+
 
  
