@@ -15,7 +15,7 @@ features {
 }
 
 resource "azurerm_resource_group" "azure-terraform" {
- name     = "cmterranskubeadm1"
+ name     = "cmk8scl"
  location = "East US "
 }
 
@@ -159,8 +159,6 @@ resource "azurerm_network_interface_security_group_association" "wk_nsg_nic" {
   network_security_group_id = azurerm_network_security_group.allowports.id
 }
 
-
-
 resource "azurerm_managed_disk" "worker" {
  count                = var.worker_count
  name                 = "datadisk_existing-worker_${count.index}"
@@ -211,24 +209,43 @@ resource "azurerm_linux_virtual_machine" "master" {
  resource_group_name   = azurerm_resource_group.azure-terraform.name
  network_interface_ids = azurerm_network_interface.master_nic.*.id
  size               = "Standard_D2ds_v4"
- disable_password_authentication = false
+ disable_password_authentication = true
+ admin_username = "azureuser"
+ admin_password = "P@ssw0rd123456"
 
-
-provisioner "remote-exec" {
-    inline = ["sudo dnf update", "sudo dnf install python3", "sudo dnf install python3-pip", "pip3 install ansible --user", "subscription-manager repos --enable ansible-2.8-for-rhel-8-x86_64-rpms", "dnf -y install ansible"]
+source_image_reference {
+    publisher = "OpenLogic"
+    offer     = "CentOS"
+    sku       = "8_5-gen2"
+    version   = "latest"
+  }
+   
+   os_disk {
+    name              = "accdisk-master-${count.index}"
+    caching           = "ReadWrite"
+    storage_account_type = "Standard_LRS"
+    
+ }
+  
+ admin_ssh_key {
+     username       = "azureuser"
+     public_key     =  tls_private_key.example_ssh.public_key_openssh
+ }
+#provisioner "remote-exec" {
+    #inline = ["cd /etc/yum.repos.d/", "sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*", "sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*", "sudo dnf update  ", "sudo dnf install python3", "sudo dnf install python3-pip", "pip3 install ansible --user", "subscription-manager repos --enable ansible-2.8-for-rhel-8-x86_64-rpms", "dnf -y install ansible"]
     
 
-    connection {
-      host        = azurerm_linux_virtual_machine.master[count.index].public_ip_address
-      type        = "ssh"
-      user        = "azureuser"
-      private_key = tls_private_key.example_ssh.private_key_pem
-       }
-         }
+    #connection {
+      #host        = azurerm_linux_virtual_machine.master[count.index].public_ip_address
+      #type        = "ssh"
+      #user        = "azureuser"
+      #private_key = tls_private_key.example_ssh.private_key_pem
+       #}
+         #}
    
-  provisioner "local-exec" {
-   command = "ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -u azureuser -i '${azurerm_linux_virtual_machine.master[count.index].public_ip_address},' --private-key ${tls_private_key.example_ssh.private_key_pem} -e 'pub_key=${tls_private_key.example_ssh.public_key_openssh}' /../../ansible/kube-dependencies.yaml"
-                   }
+  #provisioner "local-exec" {
+   #command = "ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -u azureuser -i '${azurerm_linux_virtual_machine.master[count.index].public_ip_address},' --private-key ${tls_private_key.example_ssh.private_key_pem} -e 'pub_key=${tls_private_key.example_ssh.public_key_openssh}' /../../ansible/kube-dependencies.yaml"
+                   #}
  
  #provisioner "local-exec" {
     #command = "ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -u azureuser -i '${azurerm_linux_virtual_machine.my_terraform_vm.public_ip_address},' --private-key ${local_file.idrsa.filename} -e 'pub_key=${local_file.idrsapub.filename}' /../../ansible/kube-dependencies.yaml"
@@ -238,6 +255,7 @@ provisioner "remote-exec" {
    environment = "master"
           }
            }
+
 resource "azurerm_linux_virtual_machine" "worker" {
  count                 = var.worker_count
  name                  = "acctvm-worker${count.index}"
@@ -245,7 +263,9 @@ resource "azurerm_linux_virtual_machine" "worker" {
  resource_group_name   = azurerm_resource_group.azure-terraform.name
  network_interface_ids = [element(azurerm_network_interface.worker_nic.*.id, count.index)]
  size               = "Standard_D2ds_v4"
- disable_password_authentication = false
+ disable_password_authentication = true
+ admin_username = "azureuser"
+ admin_password = "P@ssw0rd123456"
 
  # Uncomment this line to delete the OS disk automatically when deleting the VM
  # delete_os_disk_on_termination = true
@@ -265,24 +285,12 @@ resource "azurerm_linux_virtual_machine" "worker" {
     storage_account_type = "Standard_LRS"
     
  }
-
- 
- admin_username = "azureuser"
- admin_password = "P@ssw0rd123456"
- 
-
- admin_ssh_key {
+  admin_ssh_key {
      username       = "azureuser"
      public_key     =  tls_private_key.example_ssh.public_key_openssh
  }
 
-
-
-
  tags = {
    environment = "worker"
  }
-
-
-
                    }
